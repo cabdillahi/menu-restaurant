@@ -1,6 +1,7 @@
 export interface Tenant {
   id: string
   name: string
+  currency:string
 }
 
 export interface Category {
@@ -23,6 +24,7 @@ export interface Food {
   updateAt: string
   categoryId: number
   tenantId: string
+  Tenant:Tenant
   category: Category
 }
 

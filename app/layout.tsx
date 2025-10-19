@@ -5,8 +5,8 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "bilaal menu app",
-  description: "bilaal menu app",
+  title: "menu app | hornsolution",
+  description: "hornsolution menu app",
   generator: "hornsolutions",
 };
 

@@ -15,5 +15,6 @@ export async function fetchCategories(tenantName: string): Promise<TenantCategor
   if (!response.ok) {
     throw new Error(`Failed to fetch categories: ${response.statusText}`)
   }
+  // console.log(response.json())
   return response.json()
 }
