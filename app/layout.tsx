@@ -3,6 +3,8 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { CartProvider } from "./context/cart-context";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "menu app | hornsolution",
@@ -18,7 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        {children}
+        <CartProvider>
+          {children}
+          <Toaster />
+        </CartProvider>
         <Analytics />
       </body>
     </html>

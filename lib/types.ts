@@ -37,3 +37,8 @@ export interface TenantCategoriesResponse {
   tenant: Tenant
   data: Category[]
 }
+
+export interface CartItem {
+  food: Food
+  quantity: number
+}

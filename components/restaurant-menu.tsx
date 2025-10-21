@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Star, Search, Loader2 } from "lucide-react";
 import type { Food, Category } from "@/lib/types";
 import { fetchFoods, fetchCategories } from "@/lib/api";
+import { CartButton } from "@/components/cart-button";
+import { CartDrawer } from "@/components/cart-drawer";
+import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/app/context/cart-context";
 
 interface RestaurantMenuProps {
   tenantName: string;
@@ -19,6 +23,10 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+
+  const { addToCart } = useCart();
+  const { toast } = useToast();
 
   useEffect(() => {
     async function loadData() {
@@ -42,6 +50,14 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
 
     loadData();
   }, [tenantName]);
+
+  const handleAddToCart = (food: Food) => {
+    addToCart(food);
+    toast({
+      title: "Added to cart",
+      description: `${food.name} has been added to your cart.`,
+    });
+  };
 
   // Filter and search foods
   const filteredFoods = useMemo(() => {
@@ -91,6 +107,10 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
+      <CartButton onClick={() => setCartOpen(true)} />
+
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
+
       {/* Menu Section */}
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-8 text-gray-900 text-balance">
@@ -204,7 +224,6 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
                     className="w-full h-full object-cover px-3 rounded-3xl py-2 hover:scale-105 transition-all duration-500"
                   />
                 </div>
-                {/* */}
                 <div className="p-4">
                   <h3 className="font-bold text-xl mb-2 text-gray-900">
                     {food.name}
@@ -229,7 +248,10 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
                         ? `$${food?.price.toFixed(2)}`
                         : `SHL${food.price.toFixed(2)}`}
                     </span>
-                    <Button className="bg-amber-400 hover:bg-amber-500 text-gray-900 rounded-full px-6">
+                    <Button
+                      onClick={() => handleAddToCart(food)}
+                      className="bg-amber-400 hover:bg-amber-500 text-gray-900 rounded-full px-6"
+                    >
                       Add to Cart
                     </Button>
                   </div>
