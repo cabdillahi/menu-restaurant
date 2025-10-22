@@ -1,16 +1,23 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Star, Search, Loader2 } from "lucide-react";
+import { Star, Search } from "lucide-react";
 import type { Food, Category } from "@/lib/types";
 import { fetchFoods, fetchCategories } from "@/lib/api";
 import { CartButton } from "@/components/cart-button";
 import { CartDrawer } from "@/components/cart-drawer";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/app/context/cart-context";
+import { MenuSkeletonLoader } from "../components/skeleton-loaders";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 interface RestaurantMenuProps {
   tenantName: string;
@@ -24,6 +31,11 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+
+  const categoryRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const foodRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const headerRef = useRef<HTMLHeadingElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const { addToCart } = useCart();
   const { toast } = useToast();
@@ -50,6 +62,97 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
 
     loadData();
   }, [tenantName]);
+
+  useEffect(() => {
+    if (!loading && foods.length > 0) {
+      // Animate header
+      if (headerRef.current) {
+        gsap.fromTo(
+          headerRef.current,
+          { opacity: 0, y: -50 },
+          { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }
+        );
+      }
+
+      // Animate search bar
+      if (searchRef.current) {
+        gsap.fromTo(
+          searchRef.current,
+          { opacity: 0, scale: 0.9 },
+          {
+            opacity: 1,
+            scale: 1,
+            duration: 0.6,
+            delay: 0.2,
+            ease: "back.out(1.7)",
+          }
+        );
+      }
+
+      // Animate categories
+      categoryRefs.current.forEach((ref, index) => {
+        if (ref) {
+          gsap.fromTo(
+            ref,
+            { opacity: 0, y: 30, scale: 0.8 },
+            {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              duration: 0.5,
+              delay: 0.3 + index * 0.1,
+              ease: "back.out(1.7)",
+            }
+          );
+        }
+      });
+
+      // Animate food cards with scroll trigger
+      foodRefs.current.forEach((ref, index) => {
+        if (ref) {
+          gsap.fromTo(
+            ref,
+            { opacity: 0, y: 50, scale: 0.9 },
+            {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              duration: 0.6,
+              delay: 0.5 + (index % 4) * 0.1,
+              ease: "power3.out",
+              scrollTrigger: {
+                trigger: ref,
+                start: "top bottom-=100",
+                toggleActions: "play none none none",
+              },
+            }
+          );
+        }
+      });
+    }
+  }, [loading, foods]);
+
+  const handleCategoryChange = (categoryId: string) => {
+    setActiveCategory(categoryId);
+
+    // Animate food cards on category change
+    foodRefs.current.forEach((ref, index) => {
+      if (ref) {
+        gsap.fromTo(
+          ref,
+          { opacity: 0, scale: 0.95, y: 20 },
+          {
+            opacity: 1,
+            scale: 1,
+            y: 0,
+            duration: 0.4,
+            delay: index * 0.05,
+            ease: "power2.out",
+          }
+        );
+      }
+    });
+  };
 
   const handleAddToCart = (food: Food) => {
     addToCart(food);
@@ -84,14 +187,7 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
   }, [foods, activeCategory, searchQuery]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-amber-400 mx-auto mb-4" />
-          <p className="text-gray-600">Loading menu...</p>
-        </div>
-      </div>
-    );
+    return <MenuSkeletonLoader />;
   }
 
   if (error) {
@@ -113,12 +209,15 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
 
       {/* Menu Section */}
       <div className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl md:text-5xl font-bold text-center mb-8 text-gray-900 text-balance">
+        <h1
+          ref={headerRef}
+          className="text-4xl md:text-5xl font-bold text-center mb-8 text-gray-900 text-balance"
+        >
           Our Regular Menu Pack
         </h1>
 
         {/* Search Bar */}
-        <div className="max-w-2xl mx-auto mb-8">
+        <div ref={searchRef} className="max-w-2xl mx-auto mb-8">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -131,61 +230,58 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
           </div>
         </div>
 
-        {/* Category Filters */}
         <div className="flex flex-wrap justify-center gap-4 mb-12">
           {/* All Items Category */}
           <button
-            onClick={() => setActiveCategory("all")}
-            className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all ${
+            ref={(el) => {
+              categoryRefs.current[0] = el;
+            }}
+            onClick={() => handleCategoryChange("all")}
+            className={`relative overflow-hidden w-32 h-32 rounded-2xl transition-all ${
               activeCategory === "all"
-                ? "bg-amber-400 shadow-lg scale-105"
-                : "bg-white hover:bg-gray-50 shadow-md hover:shadow-lg"
+                ? "ring-4 ring-amber-400 shadow-2xl scale-105"
+                : "shadow-lg hover:shadow-xl hover:scale-105"
             }`}
           >
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
-              <span className="text-3xl">🍽️</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-400 via-amber-400 to-yellow-400" />
+            <div className="absolute inset-0 bg-black/20" />
+            <div className="relative h-full flex flex-col items-center justify-center text-white">
+              <span className="text-4xl mb-2">🍽️</span>
+              <span className="font-bold text-sm px-2 text-center">
+                All Items
+              </span>
             </div>
-            <span
-              className={`font-semibold ${
-                activeCategory === "all" ? "text-gray-900" : "text-gray-700"
-              }`}
-            >
-              All Items
-            </span>
           </button>
 
-          {/* Category Items with Images */}
-          {categories.map((category) => (
+          {categories.map((category, index) => (
             <button
               key={category.id}
-              onClick={() => setActiveCategory(category.id.toString())}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all ${
+              ref={(el) => {
+                categoryRefs.current[index + 1] = el;
+              }}
+              onClick={() => handleCategoryChange(category.id.toString())}
+              className={`relative overflow-hidden w-32 h-32 rounded-2xl transition-all ${
                 activeCategory === category.id.toString()
-                  ? "bg-amber-400 shadow-lg scale-105"
-                  : "bg-white hover:bg-gray-50 shadow-md hover:shadow-lg"
+                  ? "ring-4 ring-amber-400 shadow-2xl scale-105"
+                  : "shadow-lg hover:shadow-xl hover:scale-105"
               }`}
             >
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-orange-50 to-white">
-                <img
-                  src={
-                    category.imageUrl ||
-                    `/placeholder.svg?height=80&width=80&query=${
-                      encodeURIComponent(category.name) || "/placeholder.svg"
-                    }`
-                  }
-                  alt={category.name}
-                  className="w-full h-full object-cover"
-                />
+              <img
+                src={
+                  category.imageUrl ||
+                  `/placeholder.svg?height=200&width=200&query=${
+                    encodeURIComponent(category.name) || "/placeholder.svg"
+                  }`
+                }
+                alt={category.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+              <div className="relative h-full flex items-end justify-center pb-3">
+                <span className="font-bold text-sm text-white px-2 text-center drop-shadow-lg">
+                  {category.name}
+                </span>
               </div>
-              <span
-                className={`font-semibold text-center ${
-                  activeCategory === category.id.toString()
-                    ? "text-gray-900"
-                    : "text-gray-700"
-                }`}
-              >
-                {category.name}
-              </span>
             </button>
           ))}
         </div>
@@ -207,56 +303,60 @@ export default function RestaurantMenu({ tenantName }: RestaurantMenuProps) {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-            {filteredFoods.map((food) => (
-              <Card
+            {filteredFoods.map((food, index) => (
+              <div
                 key={food.id}
-                className="overflow-hidden border-none shadow-lg hover:shadow-xl transition-shadow bg-white"
+                ref={(el) => {
+                  foodRefs.current[index] = el;
+                }}
               >
-                <div className="relative w-full h-64 bg-gradient-to-br from-orange-50 to-white overflow-hidden">
-                  <img
-                    src={
-                      food.imageUrl ||
-                      `/placeholder.svg?height=300&width=300&query=${
-                        encodeURIComponent(food.name) || "/placeholder.svg"
-                      }`
-                    }
-                    alt={food.name}
-                    className="w-full h-full object-cover px-3 rounded-3xl py-2 hover:scale-105 transition-all duration-500"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-xl mb-2 text-gray-900">
-                    {food.name}
-                  </h3>
-                  <div className="flex gap-1 mb-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className="w-4 h-4 fill-amber-400 text-amber-400"
-                      />
-                    ))}
+                <Card className="overflow-hidden border-none shadow-lg hover:shadow-xl transition-shadow bg-white h-full">
+                  <div className="relative w-full h-64 bg-gradient-to-br from-orange-50 to-white overflow-hidden">
+                    <img
+                      src={
+                        food.imageUrl ||
+                        `/placeholder.svg?height=300&width=300&query=${
+                          encodeURIComponent(food.name) || "/placeholder.svg"
+                        }`
+                      }
+                      alt={food.name}
+                      className="w-full h-full object-cover px-3 rounded-3xl py-2 hover:scale-105 transition-all duration-500"
+                    />
                   </div>
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                    {food.description}
-                  </p>
-                  <p className="text-xs text-gray-500 mb-4">
-                    {food.category.name}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold text-gray-900">
-                      {food?.Tenant?.currency === "USD"
-                        ? `$${food?.price.toFixed(2)}`
-                        : `SHL${food.price.toFixed(2)}`}
-                    </span>
-                    <Button
-                      onClick={() => handleAddToCart(food)}
-                      className="bg-amber-400 hover:bg-amber-500 text-gray-900 rounded-full px-6"
-                    >
-                      Add to Cart
-                    </Button>
+                  <div className="p-4">
+                    <h3 className="font-bold text-xl mb-2 text-gray-900">
+                      {food.name}
+                    </h3>
+                    <div className="flex gap-1 mb-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className="w-4 h-4 fill-amber-400 text-amber-400"
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                      {food.description}
+                    </p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      {food.category.name}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-gray-900">
+                        {food?.Tenant?.currency === "USD"
+                          ? `$${food?.price.toFixed(2)}`
+                          : `SHL${food.price.toFixed(2)}`}
+                      </span>
+                      <Button
+                        onClick={() => handleAddToCart(food)}
+                        className="bg-amber-400 hover:bg-amber-500 text-gray-900 rounded-full px-6"
+                      >
+                        Add to Cart
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
             ))}
           </div>
         )}
